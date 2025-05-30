@@ -343,7 +343,7 @@
 
   const websiteUrl = "suprr-backend-o5rp.onrender.com";
 
-  async function fetchChat(chatId, callback) {
+  async function fetchChat(chatId) {
     const response = await fetch(`https://${websiteUrl}/fetch-chat/${chatId}`, {
       headers: {
         "Content-Type": "application/json",
@@ -362,17 +362,16 @@
         addMessage(message.content, message.role === "admin");
       }
 
-      callback(data);
       return data;
     }
 
     return null;
   }
 
-  async function fetchLastSeen(chatId) {
+  async function fetchLastSeen() {
     console.log("fetch last seen");
     const response = await fetch(
-      `https://${websiteUrl}/fetch-last-seen/${chatId}`,
+      `https://${websiteUrl}/fetch-last-seen/${getAuthKeyFromScript()}`,
       {
         headers: {
           "Content-Type": "application/json",
@@ -406,9 +405,8 @@
 
   let user = localStorage.getItem("suprrChatId");
 
-  fetchChat(user, (data) => {
-    fetchLastSeen(data.project);
-  });
+  fetchChat(user);
+  fetchLastSeen();
 
   chatButton.addEventListener("click", () => {
     chatWindow.style.display =
