@@ -1,4 +1,7 @@
 (function () {
+  const httpProtocol = "https://";
+  const wsProtocol = "wss://";
+
   const style = document.createElement("style");
   style.textContent = `
     .suprr-chat-button {
@@ -313,6 +316,17 @@
     return null;
   }
 
+  function getServerUrlFromScript() {
+    const scripts = document.getElementsByTagName("script");
+    for (let script of scripts) {
+      if (script.src && script.src.includes("app.js")) {
+        const url = new URL(script.src, window.location.origin);
+        return url.searchParams.get("serverUrl");
+      }
+    }
+    return null;
+  }
+
   const chatButton = document.getElementById("suprrChatButton");
   const chatWindow = document.getElementById("suprrChatWindow");
   const closeButton = document.getElementById("suprrCloseButton");
@@ -341,25 +355,28 @@
 
   let socket = null;
 
-  const websiteUrl = "suprr-backend-o5rp.onrender.com";
-
   async function fetchChat(chatId) {
-    const response = await fetch(`https://${websiteUrl}/fetch-chat/${chatId}`, {
-      headers: {
-        "Content-Type": "application/json",
-      },
-      method: "GET",
-    });
+    const response = await fetch(
+      `${httpProtocol}${getServerUrlFromScript()}/fetch-chat-messages/${chatId}`,
+      {
+        headers: {
+          "Content-Type": "application/json",
+        },
+        method: "GET",
+      }
+    );
     const data = await response.json();
 
+    console.log(data);
+
     if (response.ok) {
-      if (data.messages.length !== 0) {
+      if (data.length !== 0) {
         chatGreeting.style.display = "none";
         chatMessages.style.display = "block";
       }
 
-      for (const message of data.messages) {
-        addMessage(message.content, message.role === "admin");
+      for (const message of data) {
+        addMessage(message.content, message.sender_role === "admin");
       }
 
       return data;
@@ -371,7 +388,7 @@
   async function fetchLastSeen() {
     console.log("fetch last seen");
     const response = await fetch(
-      `https://${websiteUrl}/fetch-last-seen/${getAuthKeyFromScript()}`,
+      `${httpProtocol}${getServerUrlFromScript()}/fetch-last-seen/${getAuthKeyFromScript()}`,
       {
         headers: {
           "Content-Type": "application/json",
@@ -403,9 +420,9 @@
     lastSeen.textContent = lastSeenText;
   }
 
-  let user = localStorage.getItem("suprrChatId");
+  let chatId = localStorage.getItem("suprrChatId");
 
-  fetchChat(user);
+  fetchChat(chatId);
   fetchLastSeen();
 
   chatButton.addEventListener("click", () => {
@@ -431,13 +448,15 @@
     chatMessages.scrollTop = chatMessages.scrollHeight;
   }
 
-  function initializeSocket(user) {
+  function initializeSocket(chatId) {
     if (
       !socket ||
       socket.readyState === WebSocket.CLOSED ||
       socket.readyState === WebSocket.CLOSING
     ) {
-      socket = new WebSocket(`wss://${websiteUrl}/ws?chatId=${user}`);
+      socket = new WebSocket(
+        `${wsProtocol}${getServerUrlFromScript()}/ws?chatId=${chatId}`
+      );
 
       // When the connection is open
       socket.addEventListener("open", () => {
@@ -448,7 +467,7 @@
       socket.addEventListener("message", (event) => {
         const data = JSON.parse(event.data);
 
-        if (data.data.chat_id === user) {
+        if (data.data.chat_id === chatId) {
           addMessage(data.data.text, true);
         }
       });
@@ -462,24 +481,24 @@
 
       messageInput.value = "";
 
-      if (!user) {
-        user = crypto.randomUUID();
-        localStorage.setItem("suprrChatId", user);
+      if (!chatId) {
+        const chatId = crypto.randomUUID();
+        localStorage.setItem("suprrChatId", chatId);
       }
 
-      fetch(`https://${websiteUrl}/message`, {
+      fetch(`${httpProtocol}${getServerUrlFromScript()}/message`, {
         headers: {
           "Content-Type": "application/json",
         },
         method: "POST",
         body: JSON.stringify({
           message,
-          user,
+          chatId,
           project: getAuthKeyFromScript(),
         }),
       });
 
-      initializeSocket(user);
+      initializeSocket(chatId);
     }
   }
 
